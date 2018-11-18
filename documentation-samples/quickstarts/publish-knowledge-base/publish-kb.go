@@ -6,9 +6,10 @@ import (
     "net/http"
 )
 
-// 1. Replace variable values with your own from QnA Maker Publish page
-// 2. Compile with: go build get-answer.go
-// 3. Execute with: ./get-answer
+// 1. Replace variable values with your own 
+// 2. Compile with: go build publish-kb.go
+// 3. Execute with: ./publish-kb
+// 4. For successful publish, no data is returned, only 204 http status
 
 func main() {
 
