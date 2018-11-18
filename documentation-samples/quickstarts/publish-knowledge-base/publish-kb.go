@@ -26,5 +26,7 @@ func main() {
     response, err := client.Do(req)
     if err != nil {
         panic(err)
-    }
+	}
+	// print 204 - success code
+	fmt.Println(response.StatusCode)
 }
