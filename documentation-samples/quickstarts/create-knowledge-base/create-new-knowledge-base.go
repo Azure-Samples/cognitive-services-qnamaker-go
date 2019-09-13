@@ -5,19 +5,12 @@ import (
     "encoding/json"
     "fmt"
     "io/ioutil"
+	"log"
     "net/http"
+	"os"
     "strconv"
     "time"
 )
-
-var host string = "https://westus.api.cognitive.microsoft.com"
-var service string = "/qnamaker/v4.0"
-var method string = "/knowledgebases/create"
-
-var uri = host + service + method
-
-// Replace this with a valid subscription key.
-var subscriptionKey string = "<your-qna-maker-subscription-key>"
 
 var kb string = `{
 	"name": "QnA Maker FAQ",
@@ -48,9 +41,9 @@ var kb string = `{
 	Body	string
 }
 
-func post(uri string, content string) Response {
+func post(uri string, content string, subscription_key string) Response {
 	req, _ := http.NewRequest("POST", uri, bytes.NewBuffer([]byte(content)))
-	req.Header.Add("Ocp-Apim-Subscription-Key", subscriptionKey)
+	req.Header.Add("Ocp-Apim-Subscription-Key", subscription_key)
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Content-Length", strconv.Itoa(len(content)))
 	client := &http.Client{}
@@ -65,9 +58,9 @@ func post(uri string, content string) Response {
 	return Response {response.Header, string(body)}
 }
 
-func get(uri string) Response {
+func get(uri string, subscription_key string) Response {
 	req, _ := http.NewRequest("GET", uri, nil)
-	req.Header.Add("Ocp-Apim-Subscription-Key", subscriptionKey)
+	req.Header.Add("Ocp-Apim-Subscription-Key", subscription_key)
 	client := &http.Client{}
 	response, err := client.Do(req)
 	if err != nil {
@@ -82,9 +75,9 @@ func get(uri string) Response {
 	return Response {response.Header, string(body)}
 }
 
-func create_kb(uri string, req string) (string, string) {
+func create_kb(uri string, kb string, subscription_key string) (string, string) {
 	fmt.Println("Calling " + uri + ".")
-	result := post(uri, req)
+	result := post(uri, kb, subscription_key)
 
 	operationIds, exists := result.Headers["Location"]
 
@@ -96,9 +89,9 @@ func create_kb(uri string, req string) (string, string) {
 	}
 }
 
-func check_status(uri string) (string, string) {
+func check_status(uri string, subscription_key string) (string, string) {
 	fmt.Println("Calling " + uri + ".")
-	result := get(uri)
+	result := get(uri, subscription_key)
 	if retry, success := result.Headers["Retry-After"]; success {
 		return retry[0], result.Body
 	} else {
@@ -108,16 +101,33 @@ func check_status(uri string) (string, string) {
 }
 
 func main() {
-	
-	operation, body := create_kb(uri, kb)
+
+	// Your QnA Maker endpoint.
+	var endpoint string = os.Getenv("QNA_MAKER_ENDPOINT")
+	if "" == os.Getenv("QNA_MAKER_ENDPOINT") {
+		log.Fatal("Please set/export the environment variable QNA_MAKER_ENDPOINT.")
+	}
+
+	// QnA Maker subscription key
+	// From Publish Page
+	var subscription_key string = os.Getenv("QNA_MAKER_SUBSCRIPTION_KEY")
+	if "" == os.Getenv("QNA_MAKER_SUBSCRIPTION_KEY") {
+		log.Fatal("Please set/export the environment variable QNA_MAKER_SUBSCRIPTION_KEY.")
+	}
+
+	var service string = "/qnamaker/v4.0"
+	var method string = "/knowledgebases/create"
+	var uri = endpoint + service + method
+
+	operation, body := create_kb(uri, kb, subscription_key)
 	fmt.Printf(body + "\n")
 
 	var done bool = false
 
 	for done == false {
 
-		uri := host + service + operation
-		wait, status := check_status(uri)
+		uri := endpoint + service + operation
+		wait, status := check_status(uri, subscription_key)
 		fmt.Println(status)
 
 		var status_obj map[string]interface{}
