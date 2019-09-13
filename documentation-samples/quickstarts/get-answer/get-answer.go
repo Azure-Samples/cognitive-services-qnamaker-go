@@ -4,35 +4,51 @@ import (
     "bytes"
     "fmt"
     "io/ioutil"
+    "log"
     "net/http"
+    "os"
     "strconv"
 )
 
-// 1. Replace variable values with your own from QnA Maker Publish page
-// 2. Compile with: go build get-answer.go
-// 3. Execute with: ./get-answer
+/*
+1. Create environment variabes QNA_MAKER_RESOURCE_ENDPOINT, QNA_MAKER_ENDPOINT_KEY, QNA_MAKER_KB_ID.
+2. Compile with: go build get-answer.go
+3. Execute with: ./get-answer
+*/
 
 func main() {
 
-	// Represents the various elements used to create HTTP request URIs
-	// for QnA Maker operations.
-	// From Publish Page: HOST
-	// Example: https://YOUR-RESOURCE-NAME.azurewebsites.net/qnamaker
-	var host string = "https://YOUR-RESOURCE-NAME.azurewebsites.net/qnamaker";
+    // Your QnA Maker resource endpoint.
+    // From Publish Page: HOST
+    // Example: https://YOUR-RESOURCE-NAME.azurewebsites.net/
+    if "" == os.Getenv("QNA_MAKER_RESOURCE_ENDPOINT") {
+        log.Fatal("Please set/export the environment variable QNA_MAKER_RESOURCE_ENDPOINT.")
+    }
+    var endpoint string = os.Getenv("QNA_MAKER_RESOURCE_ENDPOINT")
 
-	// Authorization endpoint key
-	// From Publish Page
-	var endpoint_key string = "YOUR-ENDPOINT-KEY";
+    // Authorization endpoint key
+    // From Publish Page
+    // Note this is not the same as your QnA Maker subscription key.
+    if "" == os.Getenv("QNA_MAKER_ENDPOINT_KEY") {
+        log.Fatal("Please set/export the environment variable QNA_MAKER_ENDPOINT_KEY.")
+    }
+    var endpoint_key string = os.Getenv("QNA_MAKER_ENDPOINT_KEY")
 
-	// Management APIs postpend the version to the route
-	// From Publish Page, value after POST
-	// Example: /knowledgebases/ZZZ15f8c-d01b-4698-a2de-85b0dbf3358c/generateAnswer
-	var route string = "/knowledgebases/YOUR-KNOWLEDGE-BASE-ID/generateAnswer";
+    // QnA Maker Knowledge Base ID
+    if "" == os.Getenv("QNA_MAKER_KB_ID") {
+        log.Fatal("Please set/export the environment variable QNA_MAKER_KB_ID.")
+    }
+    var kb_id string = os.Getenv("QNA_MAKER_KB_ID")
 
-	// JSON format for passing question to service
-	var question string = "{'question': 'Is the QnA Maker Service free?','top': 3}";
+    // Management APIs postpend the version to the route
+    // From Publish Page, value after POST
+    // Example: /knowledgebases/ZZZ15f8c-d01b-4698-a2de-85b0dbf3358c/generateAnswer
+    var route string = "/qnamaker/knowledgebases/" + kb_id + "/generateAnswer";
 
-	req, _ := http.NewRequest("POST", host + route, bytes.NewBuffer([]byte(question)))
+    // JSON format for passing question to service
+    var question string = "{'question': 'Is the QnA Maker Service free?','top': 3}"
+
+    req, _ := http.NewRequest("POST", endpoint + route, bytes.NewBuffer([]byte(question)))
     req.Header.Add("Authorization", "EndpointKey " + endpoint_key)
     req.Header.Add("Content-Type", "application/json")
     req.Header.Add("Content-Length", strconv.Itoa(len(question)))
