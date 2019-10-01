@@ -10,7 +10,7 @@ import (
     "time"
 )
 
-var host string = "https://westus.api.cognitive.microsoft.com"
+var host string = "https://{your-resource-name}.api.cognitive.microsoft.com"
 var service string = "/qnamaker/v4.0"
 var method string = "/knowledgebases/create"
 
