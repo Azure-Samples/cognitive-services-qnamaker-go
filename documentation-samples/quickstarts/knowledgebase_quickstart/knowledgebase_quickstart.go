@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/Azure/azure-sdk-for-go/services/cognitiveservices/v4.0/qnamaker"
+	"github.com/Azure/azure-sdk-for-go/services/cognitiveservices/v4.0/qnamakerruntime"
 	"github.com/Azure/go-autorest/autorest"
 	"log"
 	"os"
@@ -16,6 +17,8 @@ import (
  * - List all knowledge bases
  * - Update a knowledge base
  * - Publish a knowledge base
+ * - Query a knowledge base
+ * - Delete a knowledge base
  */
 
 // Helper function to handle errors.
@@ -63,35 +66,44 @@ func handle_error (result qnamaker.Operation) {
 }
 
 /*  Configure the local environment:
-	* Set the QNAMAKER_SUBSCRIPTION_KEY and QNAMAKER_REGION environment variables 
-	* on your local machine using the appropriate method for your preferred shell 
-	* (Bash, PowerShell, Command Prompt, etc.). 
-	*
-	* For QNAMAKER_REGION, use the same region you used to get your subscription keys. 
-	* Free trial subscription keys are generated in the westcentralus region. 
-	* If you use a free trial subscription key, you shouldn't
-	*
-	* If the environment variable is created after the application is launched in a console or with Visual
-	* Studio, the shell (or Visual Studio) needs to be closed and reloaded to take the environment variable into account.
-	*/
-var subscription_key string = os.Getenv("QNAMAKER_SUBSCRIPTION_KEY")
-var region string = os.Getenv("QNAMAKER_REGION")
+* Set the QNA_MAKER_SUBSCRIPTION_KEY, QNA_MAKER_ENDPOINT, and
+* QNA_MAKER_RUNTIME_ENDPOINT environment variables on your local machine using
+* the appropriate method for your preferred shell (Bash, PowerShell, Command
+* Prompt, etc.). 
+*
+* If the environment variable is created after the application is launched in a
+* console or with Visual Studio, the shell (or Visual Studio) needs to be closed
+* and reloaded to take the environment variable into account.
+*/
+var subscription_key string = os.Getenv("QNA_MAKER_SUBSCRIPTION_KEY")
+var endpoint string = os.Getenv("QNA_MAKER_ENDPOINT")
+var runtime_endpoint string = os.Getenv("QNA_MAKER_RUNTIME_ENDPOINT")
 
-// Replace this with the endpoint for your subscription key.
-var endpoint string = "https://" + region + ".api.cognitive.microsoft.com"
+// Get runtime endpoint key.
+func get_runtime_endpoint_key () string {
+	// Get the context, which is required by the SDK methods.
+	ctx := context.Background()
 
-// The ID of the KB to update. See the list all knowledge bases code (TODO insert anchor) to get an ID.
-var kb_id string = "INSERT KB ID HERE"
-//  END - Configure the local environment.
+	client := qnamaker.NewEndpointKeysClient(endpoint)
+	// Set the subscription key on the client.
+	client.Authorizer = autorest.NewCognitiveServicesAuthorizer(subscription_key)
+
+	result, err := client.GetKeys (ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return *result.PrimaryEndpointKey
+}
 
 // Create a knowledge base.
 func create_kb () string {
 	// Get the context, which is required by the SDK methods.
 	ctx := context.Background()
 
-	kb_client := qnamaker.NewKnowledgebaseClient(endpoint)
+	client := qnamaker.NewKnowledgebaseClient(endpoint)
 	// Set the subscription key on the client.
-	kb_client.Authorizer = autorest.NewCognitiveServicesAuthorizer(subscription_key)
+	client.Authorizer = autorest.NewCognitiveServicesAuthorizer(subscription_key)
 
 	// We use this to check on the status of the create KB request.
 	ops_client := qnamaker.NewOperationsClient(endpoint)
@@ -128,7 +140,7 @@ func create_kb () string {
 	createKbPayload := qnamaker.CreateKbDTO{ Name: &name, QnaList: &qna_list, Urls: &urls, Files: &files }
 
 	// Create the KB.
-	kb_result, kb_err := kb_client.Create (ctx, createKbPayload)
+	kb_result, kb_err := client.Create (ctx, createKbPayload)
 	if kb_err != nil {
 		log.Fatal(kb_err)
 	}
@@ -168,11 +180,11 @@ func list_kbs () {
 	// Get the context, which is required by the SDK methods.
 	ctx := context.Background()
 
-	kb_client := qnamaker.NewKnowledgebaseClient(endpoint)
+	client := qnamaker.NewKnowledgebaseClient(endpoint)
 	// Set the subscription key on the client.
-	kb_client.Authorizer = autorest.NewCognitiveServicesAuthorizer(subscription_key)
+	client.Authorizer = autorest.NewCognitiveServicesAuthorizer(subscription_key)
 
-	result, err := kb_client.ListAll (ctx)
+	result, err := client.ListAll (ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -191,9 +203,9 @@ func update_kb (kb_id string) {
 	// Get the context, which is required by the SDK methods.
 	ctx := context.Background()
 
-	kb_client := qnamaker.NewKnowledgebaseClient(endpoint)
+	client := qnamaker.NewKnowledgebaseClient(endpoint)
 	// Set the subscription key on the client.
-	kb_client.Authorizer = autorest.NewCognitiveServicesAuthorizer(subscription_key)
+	client.Authorizer = autorest.NewCognitiveServicesAuthorizer(subscription_key)
 
 	// We use this to check on the status of the update KB request.
 	ops_client := qnamaker.NewOperationsClient(endpoint)
@@ -243,7 +255,7 @@ func update_kb (kb_id string) {
 	updateKbPayload := qnamaker.UpdateKbOperationDTO{ Add: &updateKBAddPayload, Update: &updateKBUpdatePayload, Delete: &updateKBDeletePayload }
 
 	// Update the KB.
-	kb_result, kb_err := kb_client.Update (ctx, kb_id, updateKbPayload)
+	kb_result, kb_err := client.Update (ctx, kb_id, updateKbPayload)
 	if kb_err != nil {
 		log.Fatal(kb_err)
 	}
@@ -278,15 +290,68 @@ func publish_kb (kb_id string) {
 	// Get the context, which is required by the SDK methods.
 	ctx := context.Background()
 
-	kb_client := qnamaker.NewKnowledgebaseClient(endpoint)
+	client := qnamaker.NewKnowledgebaseClient(endpoint)
 	// Set the subscription key on the client.
-	kb_client.Authorizer = autorest.NewCognitiveServicesAuthorizer(subscription_key)
+	client.Authorizer = autorest.NewCognitiveServicesAuthorizer(subscription_key)
 
-	_, kb_err := kb_client.Publish (ctx, kb_id)
+	_, kb_err := client.Publish (ctx, kb_id)
 	if kb_err != nil {
 		log.Fatal(kb_err)
 	}
 	fmt.Println ("KB " + kb_id + " published.")
+}
+
+// Send a query to a knowledge base.
+func query_kb (kb_id string) {
+	// Get the context, which is required by the SDK methods.
+	ctx := context.Background()
+
+	client := qnamakerruntime.NewRuntimeClient(runtime_endpoint)
+
+	runtime_key := get_runtime_endpoint_key()
+	// Set the runtime key on the client.
+	headers := make(map[string]interface{})
+	headers["Authorization"] = "EndpointKey " + runtime_key
+	client.Authorizer = autorest.NewAPIKeyAuthorizerWithHeaders(headers)
+
+	/*
+	The fields of QueryDTO are pointers, and we cannot get the addresses of literal values,
+	so we declare helper variables.
+	*/
+	question := "Is the QnA Maker service free?"
+	var answers int32
+	answers = 3
+
+	query := qnamakerruntime.QueryDTO {
+		Question: &question,
+		Top: &answers,
+	}
+
+	result, kb_err := client.GenerateAnswer (ctx, kb_id, query)
+	if kb_err != nil {
+		log.Fatal(kb_err)
+	}
+	fmt.Println ("Top answers:\n")
+	for _, answer := range *result.Answers {
+		fmt.Printf ("Answer: %s", *answer.Answer)
+		fmt.Printf ("Score: %f\n", *answer.Score)
+	}
+}
+
+// Delete a knowledge base.
+func delete_kb (kb_id string) {
+	// Get the context, which is required by the SDK methods.
+	ctx := context.Background()
+
+	client := qnamaker.NewKnowledgebaseClient(endpoint)
+	// Set the subscription key on the client.
+	client.Authorizer = autorest.NewCognitiveServicesAuthorizer(subscription_key)
+
+	_, kb_err := client.Delete (ctx, kb_id)
+	if kb_err != nil {
+		log.Fatal(kb_err)
+	}
+	fmt.Println ("KB " + kb_id + " delete.")
 }
 
 func main() {
@@ -303,5 +368,13 @@ func main() {
 
 	fmt.Println ("Publishing KB...")
 	publish_kb (kb_id)
+	fmt.Println ()
+
+	fmt.Println ("Querying KB...")
+	query_kb (kb_id)
+	fmt.Println()
+
+	fmt.Println ("Deleting KB...")
+	delete_kb (kb_id)
 	fmt.Println ()
 }
